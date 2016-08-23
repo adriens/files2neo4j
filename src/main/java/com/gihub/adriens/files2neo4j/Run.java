@@ -10,6 +10,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.PosixFilePermission;
@@ -106,6 +107,7 @@ public class Run {
         feedDirectories();
         linkFilesToDirs();
         linkDirsToDirs();
+        //linkSymlinksFiles();
     }
 
     public void generateNeo4jGraphOutputDirectory() throws IOException {
@@ -314,6 +316,57 @@ public class Run {
         setDirectory(dir);
         setOutputGraphDir(outputgraphDir);
 
+    }
+    
+    public void linkSymlinksFiles() throws IOException{
+        try (Transaction tx = getDbService().beginTx()) {
+            //dbService.findNodes(FileNodeTypes.FILE).
+            Path link;
+            Node fileNode;
+            ResourceIterator<Node> iter = dbService.findNodes(FileNodeTypes.FILE);
+            Path targetPath;
+            Node targetNode;
+            while (iter.hasNext()) {
+                fileNode = iter.next();
+                // we have the file
+
+                if(fileNode.hasProperty("isSymbolicLink")){
+                    if(fileNode.getProperty("isSymbolicLink").toString().equalsIgnoreCase("true")){
+                        // the node is a symlink
+                    // let's find the target of the symlink
+                    
+                    System.out.println("Symlink of <" + fileNode.getProperty("absolutePath"));
+                    // path of the link itself
+                    link = Paths.get(fileNode.getProperty("absolutePath").toString());
+                    System.out.println("link : <" + link.toString());
+                    
+                    targetPath = (Files.readSymbolicLink(link));//.toRealPath(LinkOption.NOFOLLOW_LINKS);
+                    
+                    System.out.println("target path : <" + targetPath.toString());
+                    System.out.println("parent target path : <" + targetPath.getParent());
+                    System.out.println("absolute target path : <" + targetPath.toAbsolutePath());
+                    //link = Paths.get(fileNode.getProperty("absolutePath").toString());
+                    
+                    //targetPath = Files.readSymbolicLink(link).toRealPath(LinkOption.NOFOLLOW_LINKS);
+                    
+                    //System.out.println("Found symbolic link : <" + fileNode.getProperty("absolutePath") + "> -> <" + targetPath.toString() + ">");
+                    //System.out.println("Found symbolic link : <" + fileNode.getProperty("absolutePath") + "> -> <" + Files.readSymbolicLink(link, LinkOption.NOFOLLOW_LINKS).getFileName().toString() + ">");
+                    /*
+                    // find the taget node
+                    targetNode = dbService.findNode(FileNodeTypes.FILE, "absolutePath", targetPath);
+                    // if target of symink is in the graph, create the link in the grap
+                    if(targetNode != null){
+                        fileNode.createRelationshipTo(targetNode, FileRelationshipType.LINKS_TO);
+                    }*/
+                    
+                    
+                    }
+                }
+
+            }
+            tx.success();
+        }
+        
     }
 
     /**
