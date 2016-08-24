@@ -12,5 +12,5 @@ import org.neo4j.graphdb.Label;
  * @author salad74
  */
 public enum FileNodeTypes implements Label{
-    FILE, DIRECTORY
+    FILE, DIRECTORY, SYMBOLIC_LINK, HIDDEN_FILE
 }

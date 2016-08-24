@@ -12,5 +12,5 @@ import org.neo4j.graphdb.RelationshipType;
  * @author salad74
  */
 public enum FileRelationshipType implements RelationshipType{
- IS_IN_DIRECTORY
+ IS_IN_DIRECTORY, LINKS_TO
 }

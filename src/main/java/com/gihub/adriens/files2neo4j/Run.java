@@ -127,8 +127,9 @@ public class Run {
             File lFile;
             while (filesIter.hasNext()) {
                 lFile = filesIter.next();
-                if (lFile.isFile()) {
+                if (lFile.isFile() ) {
 
+                    
                     Node fileNode = dbService.createNode(FileNodeTypes.FILE);
                     System.out.println("Adding file : " + lFile.getName() + " on node " + fileNode.getId());
                     fileNode.setProperty("canExecute", lFile.canExecute());
