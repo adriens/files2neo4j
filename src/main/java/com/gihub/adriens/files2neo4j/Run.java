@@ -161,6 +161,9 @@ public class Run {
                     catch(IOException ex){
                         System.err.println("Unable to get posixFilePersmiisions : " + ex.getMessage());
                     }
+                    catch(UnsupportedOperationException ex){
+                        System.err.println("posixFilePersmiisions operations not implemented on this platform, will be skipped.");
+                    }
                     // set mime-type
                     /*
                     try{
@@ -240,6 +243,9 @@ public class Run {
                     }
                     catch(IOException ex){
                         System.err.println("Unable to get posixFilePersmiisions : " + ex.getMessage());
+                    }
+                    catch(UnsupportedOperationException ex){
+                        System.err.println("Unable to get posixFilePersmiisions on this platform : skipped.");
                     }
             }
             tx.success();
