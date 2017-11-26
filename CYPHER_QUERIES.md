@@ -44,3 +44,22 @@ return n.`mime-type`, count(n.`mime-type`)
 order by count(n.`mime-type`) desc
 limit 10;
 ```
+
+# The longest path of nested directories
+
+```
+```
+
+# The most living files
+
+ie. the one that were modifed the most recently
+
+```
+```
+
+# The most static files
+
+ie. the one that are very rarely modified
+
+```
+```

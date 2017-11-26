@@ -33,6 +33,8 @@ import org.apache.tika.parser.AutoDetectParser;
 import org.apache.tika.parser.ParseContext;
 import org.apache.tika.parser.Parser;
 import org.apache.tika.sax.BodyContentHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.xml.sax.ContentHandler;
 /**
  *
@@ -43,6 +45,8 @@ public class Run {
     private String outputGraphDir;
     private String directory;
 
+    final static Logger logger = LoggerFactory.getLogger(Run.class);
+    
     private GraphDatabaseFactory dbFactory;
     private GraphDatabaseService dbService;
 
@@ -83,19 +87,19 @@ public class Run {
             if (outputDir.isDirectory()) {
                 // is it empty ?
                 if (outputDir.list().length == 0) {
-                    System.out.println("Dir exists and is empty : <" + outputDir.list().length + ">");
+                    logger.warn("Dir exists and is empty : <" + outputDir.list().length + ">");
                     setUpNEO4J();
                 } else {
-                    System.err.println("Dir is not empty. Clean-it up : <" + outputDir.list().length + ">");
+                    logger.error("Dir is not empty. Clean-it up : <" + outputDir.list().length + ">");
                     System.exit(1);
                 }
 
             }
         } else {
-            System.err.println("Does not exist");
+            logger.warn("Does not exist");
             // create it !
             outputDir.mkdir();
-            System.out.println("Directory created");
+            logger.info("Directory created");
             setUpNEO4J();
         }
     }
@@ -105,8 +109,10 @@ public class Run {
 
         feedFiles();
         feedDirectories();
+        createIndexes();
         linkFilesToDirs();
         linkDirsToDirs();
+        
         //linkSymlinksFiles();
     }
 
@@ -115,7 +121,7 @@ public class Run {
     }
 
     public void feedFiles() {
-        
+        logger.info("Feeding files ...");
         ContentHandler contenthandler = new BodyContentHandler();
       Metadata metadata = new Metadata();
         FileInputStream is = null;
@@ -131,7 +137,7 @@ public class Run {
 
                     
                     Node fileNode = dbService.createNode(FileNodeTypes.FILE);
-                    System.out.println("Adding file : " + lFile.getName() + " on node " + fileNode.getId());
+                    logger.debug("Adding file : " + lFile.getName() + " on node " + fileNode.getId());
                     fileNode.setProperty("canExecute", lFile.canExecute());
                     fileNode.setProperty("canRead", lFile.canRead());
                     fileNode.setProperty("canWrite", lFile.canWrite());
@@ -159,10 +165,10 @@ public class Run {
                         fileNode.setProperty("posixFilePermissions", PosixFilePermissions.toString(set));
                     }
                     catch(IOException ex){
-                        System.err.println("Unable to get posixFilePersmiisions : " + ex.getMessage());
+                        logger.debug("Unable to get posixFilePersmiisions : " + ex.getMessage());
                     }
                     catch(UnsupportedOperationException ex){
-                        System.err.println("posixFilePersmiisions operations not implemented on this platform, will be skipped.");
+                        logger.debug("posixFilePersmiisions operations not implemented on this platform, will be skipped.");
                     }
                     // set mime-type
                     /*
@@ -183,12 +189,8 @@ public class Run {
                         is.close();
                     }
                     catch(Exception ex){
-                        System.err.println("Not able to compure mime-type : " + ex.getMessage());
+                        logger.warn("Not able to compute mime-type : " + ex.getMessage() + " . Computation skipped.");
                     }
-                    
-                    
-                    
-                    
                 }
             }
             tx.success();
@@ -196,9 +198,23 @@ public class Run {
 
     }
 
+    public void createIndexes(){
+        try (Transaction tx = getDbService().beginTx()) {
+            // https://dzone.com/articles/indexing-neo4j-overview
+            // CREATE INDEX ON :Person(name);
+            logger.info("Creating indexes ...");
+            getDbService().execute("create index on :FILE(absolutePath)");
+            tx.success();
+            getDbService().execute("create index on :DIRECTORY(absolutePath)");
+            tx.success();
+            tx.close();
+            logger.info("Indexes created.");
+        }
+    }
     public void feedDirectories() {
         // here we go , we have a proper output directory
         // let's fill it with files nodes
+        logger.info("Feeding directories ...");
         try (Transaction tx = getDbService().beginTx()) {
             Iterator<File> filesIter = getDirs();
             File lFile;
@@ -207,9 +223,9 @@ public class Run {
 // now let's add subdirs
             while (filesIter.hasNext()) {
                 lFile = filesIter.next();
-                System.out.println("Adding dir : " + lFile.getName());
+                logger.info("Adding dir : " + lFile.getAbsolutePath());
                 fileNode = dbService.createNode(FileNodeTypes.DIRECTORY);
-                System.out.println("Node id : " + fileNode.getId());
+                logger.debug("Node id : " + fileNode.getId());
                 fileNode.setProperty("canExecute", lFile.canExecute());
                 fileNode.setProperty("canRead", lFile.canRead());
                 fileNode.setProperty("canWrite", lFile.canWrite());
@@ -242,10 +258,10 @@ public class Run {
                         fileNode.setProperty("posixFilePermissions", PosixFilePermissions.toString(set));
                     }
                     catch(IOException ex){
-                        System.err.println("Unable to get posixFilePersmiisions : " + ex.getMessage());
+                        logger.debug("Unable to get posixFilePersmiisions : " + ex.getMessage());
                     }
                     catch(UnsupportedOperationException ex){
-                        System.err.println("Unable to get posixFilePersmiisions on this platform : skipped.");
+                        logger.debug("Unable to get posixFilePersmiisions on this platform : skipped.");
                     }
             }
             tx.success();
@@ -256,6 +272,7 @@ public class Run {
     //fetch all files uin graph and attach them to their directory
     public void linkFilesToDirs() {
         //fetch files in the graph
+        logger.info("Linking files to dirs...");
         try (Transaction tx = getDbService().beginTx()) {
             //dbService.findNodes(FileNodeTypes.FILE).
             Node fileNode;
@@ -274,7 +291,7 @@ public class Run {
                     fileNode.createRelationshipTo(targetDir, FileRelationshipType.IS_IN_DIRECTORY);
                     }
                     else{
-                        System.err.println("Unable to find target node (parent dir) : dir for " + fileNode.getProperty("absolutePath"));
+                        logger.warn("Unable to find target node (parent dir) : dir for " + fileNode.getProperty("absolutePath"));
                     }
                     
                 }
@@ -286,6 +303,7 @@ public class Run {
 
     public void linkDirsToDirs() {
         //fetch files in the graph
+        logger.info("Linking dirs to dirs...");
         try (Transaction tx = getDbService().beginTx()) {
             //dbService.findNodes(FileNodeTypes.FILE).
             Node dirNode;
@@ -294,10 +312,10 @@ public class Run {
             while (iter.hasNext()) {
                 dirNode = iter.next();
                 // we have the dir
-                System.out.println("Fetching on node " + dirNode.getId() + " : " + dirNode.getProperty("absolutePath"));
+                logger.debug("Fetching on node " + dirNode.getId() + " : " + dirNode.getProperty("absolutePath"));
 
                 // check if it has a parent dir
-                System.out.println("Looking for parent node of " + dirNode.getId());
+                logger.debug("Looking for parent node of " + dirNode.getId());
                 if (dirNode.hasProperty("parentAbsoluteFile")) {
                     if (dirNode.getProperty("parentAbsoluteFile") != null) {
                         // find the parent dir node
@@ -308,7 +326,7 @@ public class Run {
                             dirNode.createRelationshipTo(targetDir, FileRelationshipType.IS_IN_DIRECTORY);
                         }
                         else{
-                            System.err.println("Unable to find target node (parent dir) : dir for " + dirNode.getProperty("absolutePath"));
+                            logger.warn("Unable to find target node (parent dir) : dir for " + dirNode.getProperty("absolutePath"));
                         }
                         
                     }
@@ -342,16 +360,16 @@ public class Run {
                         // the node is a symlink
                     // let's find the target of the symlink
                     
-                    System.out.println("Symlink of <" + fileNode.getProperty("absolutePath"));
+                    logger.debug("Symlink of <" + fileNode.getProperty("absolutePath"));
                     // path of the link itself
                     link = Paths.get(fileNode.getProperty("absolutePath").toString());
-                    System.out.println("link : <" + link.toString());
+                    logger.debug("link : <" + link.toString());
                     
                     targetPath = (Files.readSymbolicLink(link));//.toRealPath(LinkOption.NOFOLLOW_LINKS);
                     
-                    System.out.println("target path : <" + targetPath.toString());
-                    System.out.println("parent target path : <" + targetPath.getParent());
-                    System.out.println("absolute target path : <" + targetPath.toAbsolutePath());
+                    logger.debug("target path : <" + targetPath.toString());
+                    logger.debug("parent target path : <" + targetPath.getParent());
+                    logger.debug("absolute target path : <" + targetPath.toAbsolutePath());
                     //link = Paths.get(fileNode.getProperty("absolutePath").toString());
                     
                     //targetPath = Files.readSymbolicLink(link).toRealPath(LinkOption.NOFOLLOW_LINKS);

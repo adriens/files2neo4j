@@ -41,7 +41,7 @@ public class Cli {
             System.out.println("Processing. Be patient it can take a while ...");
             Run run = new Run(app.inputDir, app.outputDir);
             run.report();
-            System.out.println("Successfully processed directories and files.");
+            System.out.println("Successfully processed directories and files of <" + app.inputDir+ "> and generated Neo4J datbase in <" + app.outputDir + ">");
         }
         catch(IOException ex){
             System.err.println("Unable to process files and directories : " + ex.getMessage());
