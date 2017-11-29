@@ -48,6 +48,12 @@ limit 10;
 # The longest path of nested directories
 
 ```
+match (n)
+where (n)-[:IS_IN_DIRECTORY]->() and not ()-[:IS_IN_DIRECTORY]->(n)
+match p = (n)-[:IS_IN_DIRECTORY*1..]->(m)
+return p, length(p) as L
+order by L desc
+limit 1
 ```
 
 # The most living files
